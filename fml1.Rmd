@@ -1,0 +1,51 @@
+---
+title: "fml"
+author: "Varsha"
+date: "2023-09-09"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+#importing the dataswet by defining the path
+```{r}
+library(readxl)
+credit_card <- read_excel("/Users/varshamekala/Desktop/fml/application_data.xlsx")
+print(credit_card)
+```
+
+#descriptive statistics for a selection of quantitative and categorical variables
+```{r}
+summary(credit_card)
+```
+
+
+```{r}
+sd(credit_card$HOUR_APPR_PROCESS_START)
+```
+```{r}
+var(credit_card$HOUR_APPR_PROCESS_START)
+
+```
+#transformation of one variable
+```{r}
+credit_card$REGION_POPULATION_RELATIVE<-(credit_card$REGION_POPULATION_RELATIVE+1.0)
+summary(credit_card)
+
+```
+#one quantitative variable
+```{r}
+hist(credit_card$REGION_POPULATION_RELATIVE)
+```
+#scatterplot
+```{r}
+x<-(credit_card$AMT_INCOME_TOTAL)
+y<-(credit_card$AMT_CREDIT)
+# Corrected code
+plot(x, y, main = "Profile.Score VS Age ", xlab = "Profile.Score", ylab = "Age ")
+abline(lm(y ~ x), col = "blue")
+
+```
+
+
+
