@@ -1,0 +1,439 @@
+---
+title: "Assignment 2"
+author: "Varsha Karunya Mekala"
+output:
+  pdf_document: default
+  word_document: default
+  html_document:
+    df_print: paged
+date: "2023-09-30"
+---
+
+
+Goal : Use the k Nearest Neighbors model to determine whether a loan offer will be accepted by a new client.
+
+
+Packages Installed:
+caret, psych, FNN, gmodels, class, dplyr
+
+```{r}
+# Called the packages above using library() command
+library(caret)
+library(psych)
+library(FNN)
+library(class)
+library(gmodels)
+library(dplyr)
+```
+
+
+Data Preprocessing/Cleaning
+
+
+```{r}
+
+setwd("/Users/varshamekala/Desktop/fml")
+
+# Importing Universal Bank data
+universal_bank_data =read.csv('UniversalBank.csv') 
+
+# Top few rows of the dataset
+head(universal_bank_data)
+```
+
+
+
+There are 5000 rows and 14 columns in this dataset
+
+```{r}
+# Calculating number of rows and columns in this dataset
+dim(universal_bank_data)
+```
+
+
+
+The names of the columns are:
+
+```{r}
+# Looking at the columns of the dataset
+names(universal_bank_data)
+```
+
+
+Dropping ID and ZIP.Code columns from universal_bank_data dataset
+
+```{r}
+universal_bank_data=subset(universal_bank_data, select=-c(ID, ZIP.Code))
+```
+
+
+
+Final number of columns after dropping ID and Zip code are 12 and columns names are as follows:
+
+```{r}
+t(t(names(universal_bank_data)))
+```
+
+
+
+Looking at datatypes of all the columns in the dataset:
+
+```{r}
+sapply(universal_bank_data , class)
+```
+
+
+
+Education column seems to be an integer and contains 3 unique values 1,2,3
+
+```{r}
+# Get the unique values in Education column
+unique(universal_bank_data$Education)
+
+```
+
+
+
+Creating dummy variables for Education using ifelse commands
+
+```{r}
+universal_bank_data$Education_1 = ifelse(universal_bank_data$Education==1,1,0)
+
+universal_bank_data$Education_2 = ifelse(universal_bank_data$Education==2,1,0)
+
+universal_bank_data$Education_3 = ifelse(universal_bank_data$Education==3,1,0)
+
+```
+
+
+
+
+Dropping Education column
+
+```{r}
+# remove Education column
+universal_bank_data <- subset(universal_bank_data, select=-c(Education))
+
+```
+
+
+
+
+After dropping Education variable, we now have 11 variables in the dataset along with 3 dummy variables which in total are 14 columns
+
+```{r}
+t(t(names(universal_bank_data)))
+
+```
+
+
+
+Creating a parition into two datasets(Train and Validation) with similar percentage of Personal Loan Acceptances (Personal.Loan =1) in each of the partition using Stratified sampling.
+Split: 60%/40% train/valid datasets
+
+```{r}
+#setting seed 
+set.seed(4546)
+partition_index<- createDataPartition(universal_bank_data$Personal.Loan, p = .6, list = FALSE, times = 1)
+
+train_data  <- universal_bank_data[ partition_index,]
+val_data  <- universal_bank_data[-partition_index,]
+
+```
+
+
+
+
+
+There are 3000 and 2000 rows in training data and validation data after partitioning
+
+The percentages of Personal loan acceptances in train and validation datasets are similar(9.9% and 9.1%) which is expected from stratified sampling
+
+```{r}
+prop.table(table(train_data$Personal.Loan))*100
+prop.table(table(val_data$Personal.Loan))*100
+
+```
+
+
+
+Creating a new customer data from the given question into a dataframe.
+
+```{r}
+
+new_cust = data.frame(Age =40, Experience=10, Income=84, Family=2, CCAvg=2, Mortgage=0, Securities.Account =0,CD.Account=0, Online = 1, CreditCard=1, Education_1 =0, Education_2=1, Education_3=0)
+
+```
+
+
+
+Initializing normalized Training, Validation data, universal_bank_data to originals
+
+```{r}
+train_norm_df = train_data
+val_norm_df =val_data
+universal_bank_norm_df = universal_bank_data
+```
+
+
+
+Normalizing the training and validation data without the Personal.Loan columns(Outcome/Target variable)
+Used Preprocess on the train_data to use the estimated parameters to normalize the train_data, val_data and new_cust datasets 
+
+```{r}
+train_normalized = preProcess(train_data[,-7], method = c("center", "scale"))
+
+train_norm_df[,-7] = predict(train_normalized, train_data[,-7])
+
+val_norm_df[,-7] = predict(train_normalized, val_data[,-7])
+
+universal_bank_norm_df[,-7]= predict(train_normalized,universal_bank_data[,-7])
+
+new_norm_cust = predict(train_normalized, new_cust)
+
+```
+
+
+
+
+
+Performing K-NN classification on training data and testing against validation data using k=1
+
+```{r}
+set.seed(4546)
+prediction_vals <- knn(train = train_norm_df[,-7], test = val_norm_df[,-7], 
+          cl = train_norm_df[,7], k = 1, prob=TRUE) 
+actual_vals= val_norm_df$Personal.Loan
+prediction_probabilities = attr(prediction_vals,"prob")
+# confusion matrix:
+table(prediction_vals,actual_vals)  
+```
+
+
+# Question-1: 
+
+Age = 40, Experience = 10, Income = 84, Family = 2, CCAvg = 2, Education_1 = 0, Education_2 = 1, Education_3 = 0, Mortgage = 0, Securities Account = 0, CD Account = 0, Online = 1, and Credit Card = 1. Perform a k-NN classification with all predictors except ID and ZIP code using k = 1. Remember to transform categorical predictors with more than two categories into dummy variables first. Specify the success class as 1 (loan acceptance), and use the default cutoff value of 0.5. How would this customer be classified? 
+
+
+# Answer:
+
+KNN model classified the new customer data to Class 1 meaning that the customer will Accept the personal loan that is offered to them.
+
+```{r}
+set.seed(4546)
+new_norm_cust_pred <- knn(train = train_norm_df[,-7], test = new_norm_cust, 
+          cl = train_norm_df[,7], k = 1, prob=TRUE) 
+class_prob = attr(new_norm_cust_pred, 'prob')
+class_prob
+```
+
+
+
+
+# Question-2:
+
+What is a choice of k that balances between overfitting and ignoring the predictor information? 
+
+
+Finding the accuracy table to find the best K based on the accuracy on the validation data will give us k which is not prone to over-fitting while also not ignoring the information in the predictor variables.
+
+# Answer:
+From the table computed below, k=3 seems to be the best performer on validation data with respect to accuracy(0.97)
+
+```{r}
+# Initializing a data frame with two columns: k_vals, and accuracy_vals
+# Iterating over 70 different values of k and computing accuracy on validation data to get the best k
+accuracy_table <- data.frame(k_vals = seq(1, 70, 1), accuracy_vals = rep(0, 70))
+
+# Computing knn for different k on validation.
+for(i in 1:70) {
+  knn_predictions <- knn(train_norm_df[, -7], val_norm_df[, -7],
+  cl = train_norm_df[, 7], k = i)
+  accuracy_table[i, 2] <- confusionMatrix(knn_predictions, as.factor(val_norm_df[, 7]))$overall[1]
+}
+
+accuracy_table
+```
+
+
+# Question-3:
+
+Show the confusion matrix for the validation data that results from using the best k. 
+
+Finding confusion matrix with the best K(3) using 2 different methodologies
+1) Using CrossTable from gmodels
+2) Using confusionmatrix() as well
+
+```{r}
+set.seed(4546)
+knn_predictions <- knn(train_norm_df[, -7], val_norm_df[, -7],
+  cl = train_norm_df[, 7], k = 3)
+
+CrossTable(x=as.factor(val_norm_df[, 7]), y=knn_predictions, prop.chisq = FALSE)
+
+confusionMatrix(knn_predictions, as.factor(val_norm_df[, 7]))
+```
+
+Precision = TP/(TP+FP) = 0.948
+Recall = TP/(TP+FN) = 0.71
+ 
+
+
+# Question-4:
+
+Consider the following customer: Age = 40, Experience = 10, Income = 84, Family = 2, CCAvg = 2, Education_1 = 0, Education_2 = 1, Education_3 = 0, Mortgage = 0, Securities Account = 0, CD Account = 0, Online = 1 and Credit Card = 1. Classify the customer using the best k. 
+
+
+# Answer:
+
+Using the best k from the accuracy table: 3 to classify the new data point. The new customer is classified as the customer that will Accept the personal loan that is offered to them(class =1)
+
+
+```{r}
+
+knn_new_predictions_w_best_k <- knn(universal_bank_norm_df[, -7], new_norm_cust,
+cl = universal_bank_norm_df[, 7], k = 3, prob=TRUE)
+class_prob = attr(knn_new_predictions_w_best_k, 'prob')
+class_prob
+```
+
+
+# Question-5:
+
+Repartition the data, this time into training, validation, and test sets (50% : 30% : 20%). Apply the k-NN method with the k chosen above. Compare the confusion matrix of the test set with that of the training and validation sets. Comment on the differences and their reason. 
+
+Re-partitioning into train, valid and test datasets based on the outcome variable(Personal.Loan) using stratified sampling
+
+```{r}
+
+# Create a stratified random split of the data into test dataset and use the remaining dataset for further processing
+set.seed(4546)
+
+partition_index_mod<- createDataPartition(universal_bank_data$Personal.Loan, p = 0.2, list = FALSE, times = 1)
+test  <- universal_bank_data[partition_index_mod,]
+data_remaining  <- universal_bank_data[-partition_index_mod,]
+
+# Create a stratified random split of the training data into validation and testing sets
+split_train_val <- createDataPartition(data_remaining$Personal.Loan, p = 0.625, list = FALSE, times=1)
+train <- data_remaining[split_train_val,]
+val  <- data_remaining[-split_train_val,]
+
+```
+
+Best k chosen was 3. I will be using k=3 in the KNN model with this re-partitioned dataset.
+
+```{r}
+# Normalizing the data here
+train_norm = train
+val_norm =val
+test_norm =test
+data_remaining_norm = data_remaining
+
+train_normalized_mod = preProcess(train[,-7], method = c("center", "scale"))
+
+train_norm[,-7] = predict(train_normalized_mod, train[,-7])
+val_norm[,-7] = predict(train_normalized_mod, val[,-7])
+test_norm[,-7] = predict(train_normalized_mod, test[,-7])
+data_remaining_norm[,-7]=predict(train_normalized_mod, data_remaining[,-7])
+
+```
+
+Performing KNN using k=3 here on Training data and calculating the confusion matrix for validation data:
+
+```{r}
+set.seed(4546)
+prediction_repart_1 <- knn(train = train_norm[,-7], test = val_norm[,-7], 
+          cl = train_norm[,7], k = 3, prob=TRUE) 
+actual_repart_1= val_norm$Personal.Loan
+prediction_prob_repart_1 = attr(prediction_repart_1,"prob")
+
+CrossTable(x=actual_repart_1,y=prediction_repart_1, prop.chisq = FALSE)
+
+confusionMatrix(prediction_repart_1, as.factor(actual_repart_1))
+
+```
+
+Performing KNN using k=3 here on combined Training and Validation data and calculating the confusion matrix for testing data:
+
+
+```{r}
+set.seed(2019)
+prediction_repart_2 <- knn(train = data_remaining_norm[,-7], test = test_norm[,-7], 
+          cl = data_remaining_norm[,7], k = 3, prob=TRUE) 
+actual_repart_2= test_norm$Personal.Loan
+prediction_prob = attr(prediction_repart_2,"prob")
+
+#Confusion Matrix of Testing data
+CrossTable(x=actual_repart_2,y=prediction_repart_2, prop.chisq = FALSE)
+
+confusionMatrix(prediction_repart_2, as.factor(actual_repart_2))
+
+```
+
+
+Performing KNN using k=3 here on combined Training data and calculating the confusion matrix for training data
+
+
+```{r}
+set.seed(4546)
+prediction_repart_3 <- knn(train = train_norm[,-7], test = train_norm[,-7], 
+          cl = train_norm[,7], k = 3, prob=TRUE) 
+actual_repart_3= train_norm$Personal.Loan
+prediction_prob_repart_3 = attr(prediction_repart_3,"prob")
+
+#Confusion Matrix of Testing data
+CrossTable(x=actual_repart_3,y=prediction_repart_3, prop.chisq = FALSE)
+
+confusionMatrix(prediction_repart_3, as.factor(actual_repart_3))
+
+```
+
+
+# Comparing the differences between the Confusion matrices: 
+
+# Training Dataset:
+Accuracy = 0.9756
+TN =2249
+FN=56
+FP=5
+TP=190
+Precision = TP/ (TP+FP) = 190/(190+5) = 0.9744
+Recall = TP / (TP+FN)= 190/(190+56) = 0.7724
+
+# Validation Dataset
+Accuracy = 0.9627
+TN =1349
+FN=50
+FP=6
+TP=95
+Precision = 95/(95+6) = 0.9406
+Recall = 95/(95+50) = 0.6551
+
+# Testing Dataset:
+Accuracy = 0.955
+TN =907
+FN=41
+FP=4
+TP=48
+Precision = 48/(48+4) = 0.923
+Recall = 48/(48+41) = 0.539
+
+# Conclusions: 
+We can observe that the training set has the highest accuracy, which is followed by the validation set and the test set. This is to be expected as the model has only been tested on the validation and test sets, and has only been trained on the training set. The model may not generalize well to new data if it is overfit to the training set, which would result in decreased accuracy on the validation and test sets. Since the accuracy on the validation and test sets is still relatively good in this instance, it is likely that the model is not overfitting and will generalize well to new data.
+
+Additionally, as each set represents a different sample of the population, we may anticipate to notice some variations in the distribution of the predictor variables between the training, validation, and test sets' confusion matrices.
+
+Since accuracy and precision appear to be near to each other across all datasets, the model may be successfully adapted to new data and resistant to overfitting.
+
+Recall, however, appears to be the metric with the biggest disparity between the three data sets mentioned above. This disparity could be caused by numerous factors, including overfitting, unbalanced classes, and poor data quality. 
+
+Since we use stratified sampling, unbalanced classes might not be a problem in this situation.
+
+To address these issues: 
+1. We can regularize the model to prevent overfitting
+2. We can improve the quality of training data 
+3. We can use recall and Precision as a metric to find the best K instead of accuracy which is not always a good metric.
+
+
+
+
